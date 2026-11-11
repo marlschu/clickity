@@ -65,6 +65,29 @@ def _probe(path: str) -> tuple[int | None, str]:
         return None, ""
 
 
+def input_group_state() -> str:
+    """'active' | 'pending' (in /etc/group but not this session) | 'missing'."""
+    import grp
+    import pwd
+    try:
+        g = grp.getgrnam("input")
+    except KeyError:
+        return "missing"
+    if g.gr_gid in os.getgroups():
+        return "active"
+    user = pwd.getpwuid(os.getuid()).pw_name
+    return "pending" if user in g.gr_mem else "missing"
+
+
+def hotkey_fix_hint() -> str:
+    state = input_group_state()
+    if state == "pending":
+        return "you're in 'input' but this login predates it: log out and back in (or reboot)"
+    if state == "missing":
+        return "run: ./install.sh --hotkeys, then log out/in"
+    return "no keyboard devices found"
+
+
 def access_status() -> tuple[int, int]:
     """(#event devices readable, #total)."""
     devs = glob.glob("/dev/input/event*")

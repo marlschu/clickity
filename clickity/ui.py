@@ -11,7 +11,7 @@ from .backends import Backend
 from .config import (ACTIONS, BUTTON_CHOICES, CLICK_TYPES, MODES, THEMES,
                      Settings, Store)
 from .engine import ARMING, FIRING, IDLE, Engine
-from .hotkeys import HOTKEY_CHOICES, HotkeyListener, access_status
+from .hotkeys import HOTKEY_CHOICES, HotkeyListener, access_status, hotkey_fix_hint
 
 # --------------------------------------------------------------------------- art
 _FONT = {
@@ -178,8 +178,9 @@ class App:
                 self.log(f"global hotkeys armed on {len(hk.keyboards)} keyboard(s)")
             else:
                 ok, total = access_status()
-                self.log(f"global hotkeys OFFLINE ({ok}/{total} input devs readable) - "
-                         "terminal keys only; add user to 'input' group")
+                self.log(f"!! global hotkeys OFFLINE ({ok}/{total} input devs readable) - "
+                         "terminal keys only")
+                self.log("!! fix: " + hotkey_fix_hint())
 
     # ------------------------------------------------------------------ utils
     def log(self, msg: str) -> None:

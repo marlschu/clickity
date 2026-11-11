@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-import grp
 import locale
 import os
 import platform
@@ -14,7 +13,7 @@ import time
 from . import __version__
 from .backends import open_backend
 from .config import (ACTIONS, BUTTON_CHOICES, CLICK_TYPES, CONFIG_FILE, Settings, Store)
-from .hotkeys import HOTKEY_CHOICES, HotkeyListener, access_status
+from .hotkeys import HOTKEY_CHOICES, HotkeyListener, access_status, hotkey_fix_hint, input_group_state
 
 C = {"m": "\033[38;5;201m", "c": "\033[38;5;51m", "y": "\033[38;5;226m", "d": "\033[38;5;60m",
      "g": "\033[38;5;48m", "r": "\033[38;5;197m", "b": "\033[1m", "0": "\033[0m"}
@@ -41,15 +40,15 @@ def cmd_doctor(_args) -> int:
     line(exists, "/dev/uinput exists", "" if exists else "sudo modprobe uinput")
     w = exists and os.access("/dev/uinput", os.W_OK)
     line(w, "/dev/uinput writable", "" if w else "run ./install.sh (udev rule)")
-    try:
-        groups = {grp.getgrgid(g).gr_name for g in os.getgroups()}
-    except KeyError:
-        groups = set()
-    line("input" in groups, "user in 'input' group", "needed for GLOBAL hotkeys" if "input" not in groups else "")
+    gs = input_group_state()
+    line(gs == "active", "'input' group (hotkeys)",
+         "" if gs == "active" else hotkey_fix_hint())
     ok, total = access_status()
     line(ok > 0, "input devices readable", f"{ok}/{total}")
     hk = HotkeyListener(lambda *_: None)
     line(hk.available, "keyboards for hotkeys", ", ".join(hk.keyboards[:3]) or "none")
+    if not hk.available:
+        print(f"         {C['y']}» F8 only works while the Clickity terminal is focused{C['0']}")
     hk.stop()
     for tool in ("ydotool", "xdotool"):
         line(None, f"{tool} (optional fallback)", shutil.which(tool) or "not installed")
@@ -128,8 +127,10 @@ def cmd_run(args) -> int:
           f"via {C['y']}{backend.name}{C['0']}")
     if hk.available:
         print(f"{C['d']}  {s.hotkey}: toggle   {s.panic_key}: kill switch   Ctrl+C: exit{C['0']}")
-    elif args.wait:
-        print(f"{C['r']}!! --wait needs global hotkeys (input group); starting now{C['0']}")
+    else:
+        print(f"{C['r']}!! global hotkeys offline - {hotkey_fix_hint()}{C['0']}")
+        if args.wait:
+            print(f"{C['r']}!! --wait needs global hotkeys; starting now{C['0']}")
     if not (args.wait and hk.available):
         eng.start()
 
