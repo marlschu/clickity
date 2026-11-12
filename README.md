@@ -106,20 +106,34 @@ clickity run --wait              # stay armed; F8 starts/stops
   fast the target app reads input.
 - Needs a UTF-8 terminal at least 70×22. 100×34 or larger gets the full banner.
 
-## Testing status (v1.0.0)
+## Testing
 
-**Verified** on Ubuntu 26.04 / Python 3.14 / Wayland, using the dry-run backend:
-- scheduler rate accuracy, bursts, click and time limits, countdown
-- the global-hotkey reader (fed synthetic kernel events) and toggle, hold and kill-switch logic
-- the exact uinput event byte stream; ioctl numbers match the kernel headers
-- TUI rendering at 70×22 through 110×42, in 256 and 8 colours
-- `install.sh --dry-run` on an apt system; source is Python 3.9 syntax compatible
+```bash
+python3 -m unittest discover -s tests -t .      # whole suite (~25 s, stdlib only)
+python3 -m unittest tests.test_engine -v         # one module
+```
 
-**Not yet verified:**
-- real click injection through `/dev/uinput` (needs the installer's permissions)
+The suite needs no extra packages and never touches real input devices: the
+uinput backend is exercised against a temp file with `ioctl` stubbed, hotkeys
+are fed synthetic kernel events through a pipe, and the config store is
+redirected to a temp directory.
+
+| module | covers |
+|---|---|
+| `test_config` | clamping, presets, profile save/load, corrupt-file recovery, deleted presets |
+| `test_backends` | ioctl numbers vs kernel headers, exact uinput event byte stream, ydotool/xdotool argument mapping, backend fallback |
+| `test_engine` | scheduler rate (20–300/s), jitter, bursts, click/time limits, countdown, stall recovery, wiggle, scroll directions, backend errors |
+| `test_hotkeys` | key code table, `input` group states and hints, the listener loop (press/release/autorepeat, unplug, crashing callback) |
+| `test_cli` | `run` flags → settings, headless runs, lifetime counter, hotkey wiring, `doctor`, `profiles`, launchers |
+| `test_ui` | TUI key handling and profiles, plus the real curses UI in a pseudo-terminal at 70×22, 110×42 and 8-colour |
+
+CI (`.github/workflows/tests.yml`) runs it on Python 3.9–3.14 on Ubuntu and on
+Arch Linux, together with `install.sh --dry-run` for the apt and pacman paths.
+
+**Not yet verified on real hardware** (the suite stubs these out):
+- real click injection through `/dev/uinput`
 - global hotkeys reading a real keyboard
-- the privileged steps of `install.sh`, and the whole pacman/Arch path
-- running on an actual Python 3.9–3.11 interpreter (only syntax was checked)
+- the privileged steps of `install.sh` on Ubuntu and Arch (CI only runs `--dry-run`)
 
 ## Layout
 
@@ -131,4 +145,6 @@ clickity/engine.py    click scheduler thread
 clickity/config.py    settings, presets, profile store
 clickity/ui.py        curses interface
 clickity/cli.py       argparse entry: tui / run / doctor / profiles
+tests/                unittest suite (python3 -m unittest discover -s tests -t .)
+.github/workflows/    CI: Python 3.9–3.14 on Ubuntu + Arch
 ```
