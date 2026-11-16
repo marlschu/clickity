@@ -1,0 +1,39 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  ubuntu:
+    name: ubuntu / python ${{ matrix.python }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+      - name: unit tests
+        run: python -m unittest discover -s tests -t . -v
+      - name: installer dry run (apt path)
+        run: ./install.sh --dry-run --no-hotkeys
+
+  arch:
+    name: arch linux / system python
+    runs-on: ubuntu-24.04
+    container: archlinux:latest
+    steps:
+      - name: install python + sudo, add a normal user (installer refuses root)
+        run: |
+          pacman -Syu --noconfirm python sudo
+          useradd -m ci
+      - uses: actions/checkout@v7
+      - run: chown -R ci .
+      - name: unit tests
+        run: su ci -c "python -m unittest discover -s tests -t . -v"
+      - name: installer dry run (pacman path)
+        run: su ci -c "./install.sh --dry-run --no-hotkeys"
